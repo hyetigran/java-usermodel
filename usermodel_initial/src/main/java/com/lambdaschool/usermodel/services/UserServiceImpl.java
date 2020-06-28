@@ -2,6 +2,7 @@ package com.lambdaschool.usermodel.services;
 
 import com.lambdaschool.usermodel.models.Role;
 import com.lambdaschool.usermodel.models.User;
+import com.lambdaschool.usermodel.models.UserRoles;
 import com.lambdaschool.usermodel.models.Useremail;
 import com.lambdaschool.usermodel.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -9,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import javax.persistence.EntityNotFoundException;
+import javax.persistence.Transient;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -31,6 +33,9 @@ public class UserServiceImpl implements UserService
     @Autowired
     private RoleService roleService;
 
+
+    @Autowired
+    private UserAuditing userAuditing;
 
     public User findUserById(long id) throws EntityNotFoundException
     {
@@ -86,8 +91,13 @@ public class UserServiceImpl implements UserService
 
         if (user.getUserid() != 0)
         {
-            userrepos.findById(user.getUserid())
+            User oldUser = userrepos.findById(user.getUserid())
                 .orElseThrow(() -> new EntityNotFoundException("User id " + user.getUserid() + " not found!"));
+            // delete roles for the old user
+
+            for(UserRoles ur : oldUser.getRoles()){
+                deleteUserRole(ur.getUser().getUserid(), ur.getRole().getRoleid());
+            }
             newUser.setUserid(user.getUserid());
         }
 
@@ -99,12 +109,19 @@ public class UserServiceImpl implements UserService
 
         newUser.getRoles()
             .clear();
-        for (Role r : user.getRoles())
-        {
-            Role newRole = roleService.findRoleById(r.getRoleid());
+        if(user.getUserid() == 0) {
+            for (UserRoles r : user.getRoles())
+            {
+                Role newRole = roleService.findRoleById(r.getRole().getRoleid());
 
-            newUser.addRole(newRole);
+                newUser.addRole(newRole);
+            }
+        } else {
+            for (UserRoles ur : user.getRoles()){
+                addUserRole(ur.getUser().getUserid(), ur.getRole().getRoleid());
+            }
         }
+
 
         newUser.getUseremails()
             .clear();
@@ -148,11 +165,13 @@ public class UserServiceImpl implements UserService
         {
             currentUser.getRoles()
                 .clear();
-            for (Role r : user.getRoles())
+            for (UserRoles ur : currentUser.getRoles())
             {
-                Role newRole = roleService.findRoleById(r.getRoleid());
-
-                currentUser.addRole(newRole);
+                deleteUserRole(ur.getUser().getUserid(), ur.getRole().getRoleid());;
+            }
+            for (UserRoles ur : user.getRoles())
+            {
+                addUserRole(currentUser.getUserid(), ur.getRole().getRoleid());;
             }
         }
 
@@ -170,5 +189,34 @@ public class UserServiceImpl implements UserService
         }
 
         return userrepos.save(currentUser);
+    }
+
+    @Transactional
+    @Override
+    public void deleteUserRole(long userid, long roleid){
+        userrepos.findById(userid).orElseThrow(() -> new EntityNotFoundException("User id " + userid + " Not Found"));
+
+        roleService.findRoleById(roleid);
+
+        if(userrepos.checkUserRolesCombo(userid, roleid).getCount() > 0){
+            userrepos.deleteUserRoles(userid, roleid);
+        } else {
+            throw new EntityNotFoundException("Role and User Combination Not Found");
+        }
+    }
+
+    @Transactional
+    @Override
+    public void addUserRole(long userid, long roleid){
+        userrepos.findById(userid).orElseThrow(() -> new EntityNotFoundException("User id " + userid + " Not Found"));
+
+        roleService.findRoleById(roleid);
+
+        if(userrepos.checkUserRolesCombo(userid, roleid).getCount() <= 0) {
+            userrepos.insertUserRoles(userAuditing.getCurrentAuditor().get(), userid, roleid);
+        } else {
+            throw new EntityNotFoundException("Role and User Combination Not Found");
+        }
+
     }
 }

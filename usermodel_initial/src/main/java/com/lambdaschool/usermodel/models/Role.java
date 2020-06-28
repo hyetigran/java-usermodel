@@ -11,7 +11,7 @@ import java.util.List;
  */
 @Entity
 @Table(name = "roles")
-public class Role
+public class Role extends Auditable
 {
     /**
      * The primary key (long) of the roles table.
@@ -32,10 +32,9 @@ public class Role
      * Creates a join table joining Users and Roles in a Many-To-Many relations.
      * Contains a List of Users Objects using this Role.
      */
-    @ManyToMany(mappedBy = "roles")
-    @JsonIgnoreProperties(value = "roles",
-        allowSetters = true)
-    private List<User> users = new ArrayList<>();
+    @OneToMany(mappedBy = "roles", cascade = CascadeType.ALL)
+    @JsonIgnoreProperties(value = "roles")
+    private List<UserRoles> users = new ArrayList<>();
 
     /**
      * Default Constructor used primarily by the JPA.
@@ -105,7 +104,7 @@ public class Role
      *
      * @return a list of User objects assigned to this role
      */
-    public List<User> getUsers()
+    public List<UserRoles> getUsers()
     {
         return users;
     }
@@ -115,7 +114,7 @@ public class Role
      *
      * @param users a new list of User objects to assign to this role
      */
-    public void setUsers(List<User> users)
+    public void setUsers(List<UserRoles> users)
     {
         this.users = users;
     }

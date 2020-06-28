@@ -13,7 +13,7 @@ import java.util.List;
  */
 @Entity
 @Table(name = "users")
-public class User
+public class User extends Auditable
 {
     /**
      * The primary key (long) of the users table.
@@ -59,13 +59,10 @@ public class User
      * Creates a join table joining Users and Roles in a Many-To-Many relations.
      * Contains a List of Role Objects used by this user.
      */
-    @ManyToMany()
-    @JoinTable(name = "userroles",
-        joinColumns = @JoinColumn(name = "userid"),
-        inverseJoinColumns = @JoinColumn(name = "roleid"))
-    @JsonIgnoreProperties(value = "users",
-        allowSetters = true)
-    private List<Role> roles = new ArrayList<>();
+    @OneToMany(mappedBy = "user",
+     cascade = CascadeType.ALL)
+    @JsonIgnoreProperties(value = "user")
+    private List<UserRoles> roles = new ArrayList<>();
 
     /**
      * Default constructor used primarily by the JPA.
@@ -210,7 +207,7 @@ public class User
      *
      * @return A list of the Role objects assigned to this user
      */
-    public List<Role> getRoles()
+    public List<UserRoles> getRoles()
     {
         return roles;
     }
@@ -220,32 +217,12 @@ public class User
      *
      * @param roles Replaces the current list of roles assigned to this user with this one
      */
-    public void setRoles(List<Role> roles)
+    public void setRoles(List<UserRoles> roles)
     {
         this.roles = roles;
     }
 
-    /**
-     * Add one role to this user
-     *
-     * @param role the new role (Role) to add
-     */
-    public void addRole(Role role)
-    {
-        roles.add(role);
-        role.getUsers()
-            .add(this);
-    }
-
-    /**
-     * Remove one role from this user
-     *
-     * @param role the role (Role) to remove
-     */
-    public void removeRole(Role role)
-    {
-        roles.remove(role);
-        role.getUsers()
-            .remove(this);
+    public void addRole(Role role){
+        roles.add(new UserRoles(this, role));
     }
 }
